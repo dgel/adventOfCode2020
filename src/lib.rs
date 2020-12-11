@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Mat<T: Clone> {
     data: Vec<T>,
     width: usize,
@@ -15,6 +15,18 @@ impl<T:Clone> Mat<T> {
             width,
             height,
         }
+    }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+    
+    pub fn iter_elements(&self) -> impl Iterator<Item=&T> {
+        self.data.iter()
     }
 }
 
