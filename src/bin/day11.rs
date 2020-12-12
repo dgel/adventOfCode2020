@@ -11,8 +11,6 @@ enum Tile {
     Floor,
 }
 
-type Map = Mat<Tile>;
-
 impl Tile {
     fn from_char(c: char) -> Option<Tile> {
         match c {
@@ -23,6 +21,7 @@ impl Tile {
         }
     }
 }
+type Map = Mat<Tile>;
 
 fn read_map(filepath: &str) -> Option<Map> {
     match File::open(filepath) {
@@ -36,19 +35,14 @@ fn read_map(filepath: &str) -> Option<Map> {
                 .collect();
 
             lines.and_then(|v| {
-                if !v.is_empty()
-                    && !v[0].is_empty()
-                    && v.iter().map(|row| row.len()).all(|i| i == v[0].len())
+                if !v.is_empty() && !v[0].is_empty() && v.iter().all(|row| row.len() == v[0].len())
                 {
-                    let rows = v.len() + 2;
-                    let columns = v[0].len() + 2;
-                    let mut map = Mat::new(columns, rows, Tile::Floor);
+                    let mut map = Mat::new(v[0].len() + 2, v.len() + 2, Tile::Floor);
                     for (i, row) in v.iter().enumerate() {
                         for (j, tile) in row.iter().enumerate() {
                             map[(j + 1, i + 1)] = *tile;
                         }
                     }
-
                     Some(map)
                 } else {
                     None
@@ -62,45 +56,33 @@ fn read_map(filepath: &str) -> Option<Map> {
     }
 }
 
-#[derive(Debug, Options)]
-struct Arguments {
-    #[options(free)]
-    input_file: String,
-}
+static DIRECTIONS: &[(isize, isize)] = &[
+    (1, 1),
+    (0, 1),
+    (-1, 1),
+    (1, 0),
+    (-1, 0),
+    (1, -1),
+    (0, -1),
+    (-1, -1),
+];
 
 fn count_around(map: &Map, row: usize, column: usize, tile: Tile) -> usize {
-    let mut result = 0;
-    for &(hstep, vstep) in &[
-        (1, 1),
-        (0, 1),
-        (-1, 1),
-        (1, 0),
-        (-1, 0),
-        (1, -1),
-        (0, -1),
-        (-1, -1),
-    ] {
-        let c = (column as isize + hstep) as usize;
-        let r = (row as isize + vstep) as usize;
-        if map[(c, r)] == tile {
-            result += 1;
-        }
-    }
-    result
+    DIRECTIONS
+        .iter()
+        .map(|&(hstep, vstep)| {
+            map[(
+                (column as isize + hstep) as usize,
+                (row as isize + vstep) as usize,
+            )]
+        })
+        .filter(|&t| t == tile)
+        .count()
 }
 
 fn count_first_directions(map: &Map, row: usize, column: usize, tile: Tile) -> usize {
     let mut result = 0;
-    for &(hstep, vstep) in &[
-        (1, 1),
-        (0, 1),
-        (-1, 1),
-        (1, 0),
-        (-1, 0),
-        (1, -1),
-        (0, -1),
-        (-1, -1),
-    ] {
+    for &(hstep, vstep) in DIRECTIONS {
         let mut c = column as isize;
         let mut r = row as isize;
         loop {
@@ -124,8 +106,13 @@ fn count_first_directions(map: &Map, row: usize, column: usize, tile: Tile) -> u
 
 type CountFun = fn(&Map, usize, usize, Tile) -> usize;
 
-fn step_tile(map: &Map, row: usize, column: usize, occupied_swap_threshold: usize, countfun: CountFun) -> Tile
-{
+fn step_tile(
+    map: &Map,
+    row: usize,
+    column: usize,
+    occupied_swap_threshold: usize,
+    countfun: CountFun,
+) -> Tile {
     match map[(column, row)] {
         Tile::Floor => Tile::Floor,
         Tile::EmptySeat => {
@@ -145,8 +132,7 @@ fn step_tile(map: &Map, row: usize, column: usize, occupied_swap_threshold: usiz
     }
 }
 
-fn step_map(map: &Map, occupied_swap_threshold: usize, countfun: CountFun) -> Map 
-{
+fn step_map(map: &Map, occupied_swap_threshold: usize, countfun: CountFun) -> Map {
     let mut new_map = Map::new(map.width(), map.height(), Tile::Floor);
     for i in 1..map.width() - 1 {
         for j in 1..map.height() - 1 {
@@ -167,6 +153,11 @@ fn fixed_point(map: &Map, occupied_swap_threshold: usize, countfun: CountFun) ->
     }
 }
 
+#[derive(Debug, Options)]
+struct Arguments {
+    #[options(free)]
+    input_file: String,
+}
 
 fn main() {
     let opts = Arguments::parse_args_default_or_exit();
