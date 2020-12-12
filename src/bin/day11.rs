@@ -67,7 +67,7 @@ static DIRECTIONS: &[(isize, isize)] = &[
     (-1, -1),
 ];
 
-fn count_around(map: &Map, row: usize, column: usize, tile: Tile) -> usize {
+fn count_occupied_around(map: &Map, row: usize, column: usize) -> usize {
     DIRECTIONS
         .iter()
         .map(|&(hstep, vstep)| {
@@ -76,11 +76,11 @@ fn count_around(map: &Map, row: usize, column: usize, tile: Tile) -> usize {
                 (row as isize + vstep) as usize,
             )]
         })
-        .filter(|&t| t == tile)
+        .filter(|&t| t == Tile::OccupiedSeat)
         .count()
 }
 
-fn count_first_directions(map: &Map, row: usize, column: usize, tile: Tile) -> usize {
+fn count_first_occupied_directions(map: &Map, row: usize, column: usize) -> usize {
     let mut result = 0;
     for &(hstep, vstep) in DIRECTIONS {
         let mut c = column as isize;
@@ -94,7 +94,7 @@ fn count_first_directions(map: &Map, row: usize, column: usize, tile: Tile) -> u
             }
             let cur_tile = map[(c as usize, r as usize)];
             if cur_tile != Tile::Floor {
-                if cur_tile == tile {
+                if cur_tile == Tile::OccupiedSeat {
                     result += 1;
                 }
                 break;
@@ -104,39 +104,17 @@ fn count_first_directions(map: &Map, row: usize, column: usize, tile: Tile) -> u
     result
 }
 
-type CountFun = fn(&Map, usize, usize, Tile) -> usize;
-
-fn step_tile(
-    map: &Map,
-    row: usize,
-    column: usize,
-    occupied_swap_threshold: usize,
-    countfun: CountFun,
-) -> Tile {
-    match map[(column, row)] {
-        Tile::Floor => Tile::Floor,
-        Tile::EmptySeat => {
-            if countfun(map, row, column, Tile::OccupiedSeat) == 0 {
-                Tile::OccupiedSeat
-            } else {
-                Tile::EmptySeat
-            }
-        }
-        Tile::OccupiedSeat => {
-            if countfun(map, row, column, Tile::OccupiedSeat) >= occupied_swap_threshold {
-                Tile::EmptySeat
-            } else {
-                Tile::OccupiedSeat
-            }
-        }
-    }
-}
+type CountFun = fn(&Map, usize, usize) -> usize;
 
 fn step_map(map: &Map, occupied_swap_threshold: usize, countfun: CountFun) -> Map {
     let mut new_map = Map::new(map.width(), map.height(), Tile::Floor);
     for i in 1..map.width() - 1 {
         for j in 1..map.height() - 1 {
-            new_map[(i, j)] = step_tile(map, j, i, occupied_swap_threshold, countfun);
+            new_map[(i, j)] = match map[(i, j)] {
+                Tile::EmptySeat if countfun(map, j, i) == 0 => Tile::OccupiedSeat,
+                Tile::OccupiedSeat if countfun(map, j, i) >= occupied_swap_threshold => Tile::EmptySeat,
+                tile => tile,
+            }
         }
     }
     new_map
@@ -165,14 +143,14 @@ fn main() {
     if let Some(map) = map_opt {
         println!(
             "Part 1: {}",
-            fixed_point(&map, 4, count_around)
+            fixed_point(&map, 4, count_occupied_around)
                 .iter_elements()
                 .filter(|&&tile| tile == Tile::OccupiedSeat)
                 .count()
         );
         println!(
             "Part 2: {}",
-            fixed_point(&map, 5, count_first_directions)
+            fixed_point(&map, 5, count_first_occupied_directions)
                 .iter_elements()
                 .filter(|&&tile| tile == Tile::OccupiedSeat)
                 .count()
